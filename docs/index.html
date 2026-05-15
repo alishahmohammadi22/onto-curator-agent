@@ -60,6 +60,25 @@
     }
     .nav-cta:hover { opacity: .85; }
 
+    /* ── Problem / Solution panel ───────────────────────────────────────────── */
+    .ps-wrapper {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem;
+      max-width: 860px; margin: 0 auto; text-align: left;
+    }
+    @media (max-width: 640px) { .ps-wrapper { grid-template-columns: 1fr; } }
+    .ps-block {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.5rem 1.6rem; background: var(--surface);
+    }
+    .ps-problem { border-left: 3px solid var(--red); }
+    .ps-solution { border-left: 3px solid var(--green); }
+    .ps-icon { font-size: 1.3rem; margin-bottom: .35rem; }
+    .ps-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: .55rem; }
+    .ps-problem .ps-label { color: var(--red); }
+    .ps-solution .ps-label { color: var(--green); }
+    .ps-block p { font-size: .88rem; color: var(--text-muted); line-height: 1.65; margin: 0; }
+    .ps-block p strong { color: var(--text); }
+
     /* ── Hero ──────────────────────────────────────────────────────────────── */
     .hero {
       min-height: 90vh;
@@ -277,6 +296,7 @@
   <a class="nav-brand" href="#">Onto<span>Curator</span></a>
   <ul class="nav-links">
     <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#code-walkthrough">Code</a></li>
     <li><a href="#what-we-built">What We Built</a></li>
     <li><a href="#results">Results</a></li>
     <li><a href="#technical">Technical</a></li>
@@ -299,12 +319,17 @@
     <a class="btn-primary" href="https://github.com/alishahmohammadi22/onto-curator-agent" target="_blank">GitHub Repository</a>
     <a class="btn-secondary" href="https://github.com/alishahmohammadi22/onto-curator-agent/blob/main/notebooks/01_quickstart_demo.ipynb" target="_blank">View Notebook Demo</a>
   </div>
-  <div class="stats-row">
-    <div class="stat"><span class="stat-num">4</span><span class="stat-label">AI Agents</span></div>
-    <div class="stat"><span class="stat-num">68</span><span class="stat-label">Terms Curated (Demo)</span></div>
-    <div class="stat"><span class="stat-num">10+</span><span class="stat-label">Ontologies Searched</span></div>
-    <div class="stat"><span class="stat-num">2,500+</span><span class="stat-label">Lines of Code</span></div>
-    <div class="stat"><span class="stat-num">GPT-5.2</span><span class="stat-label">OpenAI Model</span></div>
+  <div class="ps-wrapper">
+    <div class="ps-block ps-problem">
+      <div class="ps-icon">⚠️</div>
+      <div class="ps-label">The Problem</div>
+      <p>Pharmaceutical scientists write thousands of lab reports every year, each full of biomedical terms — assays, cell types, molecules, processes — that may not yet exist in any controlled vocabulary. Mapping them to standards like OBI, ChEBI, or NCIT is done manually, by a handful of domain experts who become bottlenecks. A single drug program can leave hundreds of unmapped terms in limbo for months.</p>
+    </div>
+    <div class="ps-block ps-solution">
+      <div class="ps-icon">✅</div>
+      <div class="ps-label">How We Solve It</div>
+      <p>A four-agent AI pipeline handles the entire workflow automatically: <strong>Extract</strong> candidate terms with GPT-5.2 NER → <strong>Map</strong> each term against 10 live ontology databases → <strong>Resolve</strong> conflicts across the mapped set → <strong>Govern</strong> with configurable thresholds that auto-approve high-confidence matches and route ambiguous terms to the right domain steward. Human experts only see terms that genuinely need them.</p>
+    </div>
   </div>
 </div>
 
@@ -435,6 +460,135 @@
 </section>
 
 <hr class="divider" />
+
+<hr class="divider" />
+
+<!-- ── Code Walkthrough ──────────────────────────────────────────────────── -->
+<section id="code-walkthrough">
+  <div class="section-tag">Code Walkthrough</div>
+  <h2>How the Code Actually Runs</h2>
+  <p class="section-intro">
+    A step-by-step trace from raw document text to final governance decisions — showing exactly what each agent does and what data it produces.
+  </p>
+
+  <div class="timeline">
+
+    <div class="tl-item">
+      <div class="tl-date">Step 1 — Initialize the Pipeline</div>
+      <div class="tl-title">Load API keys, configure thresholds, compile the LangGraph StateGraph</div>
+      <div class="tl-body">
+        <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.8rem">Calling <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">from_env()</code> reads <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">OPENAI_API_KEY</code> and <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">BIOPORTAL_API_KEY</code> from the environment, instantiates all four agents, and compiles the LangGraph <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">StateGraph</code> once. The compiled graph is reused across all subsequent <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">curate()</code> calls.</p>
+        <div class="code-block"><span class="kw">from</span> onto_curator <span class="kw">import</span> <span class="fn">OntoCuratorPipeline</span>
+
+pipeline = <span class="fn">OntoCuratorPipeline</span>.from_env(
+    model=<span class="st">"gpt-5.2"</span>,
+    auto_approve_threshold=<span class="num">0.88</span>,  <span class="cm"># ≥ 0.88 → auto_approve</span>
+    human_review_threshold=<span class="num">0.60</span>,   <span class="cm"># 0.60–0.88 → human_review, &lt; 0.60 → escalate</span>
+)
+<span class="cm"># Wired graph: extract → map → resolve → govern → END</span></div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">Step 2 — Node 1: EntityExtractorAgent</div>
+      <div class="tl-title">GPT-5.2 reads raw text and returns a typed list of candidate terms</div>
+      <div class="tl-body">
+        <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.8rem">The extractor builds a biomedical NER system prompt and sends the document text to GPT-5.2 with <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">response_format={"type":"json_object"}</code>. The response is parsed into a list of <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">CandidateTerm</code> Pydantic objects. A tenacity retry loop handles transient API failures. Entity types supported: <em>assay, molecule, cell_type, gene, disease, process</em>.</p>
+        <div class="code-block"><span class="cm"># Input: "Viability was measured by trypan blue exclusion assay"</span>
+<span class="cm"># Output (one term from a longer document):</span>
+<span class="fn">CandidateTerm</span>(
+    text=<span class="st">"trypan blue exclusion assay"</span>,
+    entity_type=<span class="fn">EntityType</span>.ASSAY,
+    confidence=<span class="num">0.95</span>,
+    source_document=<span class="st">"DOC-CAR-T-001"</span>
+)</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">Step 3 — Node 2: TermMapperAgent</div>
+      <div class="tl-title">Searches BioPortal + EBI OLS4, then asks GPT-5.2 to rank and explain the best match</div>
+      <div class="tl-body">
+        <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.8rem">For each candidate term, the mapper queries BioPortal across 10 ontologies (OBI, ChEBI, GO, CL, DOID, EFO, BAO, HP, NCIT, MeSH) and EBI OLS4 in sequence. The top hits are fed back to GPT-5.2, which ranks them and writes a one-sentence <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">mapper_reasoning</code>. If no hit scores above 0.50 the term is flagged <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">needs_new_term=True</code>.</p>
+        <div class="code-block"><span class="fn">TermMapping</span>(
+    candidate=<span class="fn">CandidateTerm</span>(text=<span class="st">"trypan blue exclusion assay"</span>, ...),
+    top_match=<span class="fn">OntologyMatch</span>(
+        ontology_id=<span class="st">"OBI:0001827"</span>,
+        label=<span class="st">"trypan blue exclusion assay"</span>,
+        source=<span class="st">"OBI"</span>, score=<span class="num">0.91</span>
+    ),
+    mapping_confidence=<span class="num">0.91</span>,
+    needs_new_term=<span class="kw">False</span>,
+    mapper_reasoning=<span class="st">"Exact label match in OBI at high confidence."</span>
+)</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">Step 4 — Node 3: ConflictResolverAgent</div>
+      <div class="tl-title">GPT-5.2 reviews the full mapped set and flags cross-term conflicts</div>
+      <div class="tl-body">
+        <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.8rem">All term mappings for the document are batched into a single GPT-5.2 call. The model identifies four conflict types: <strong>duplicate</strong> (same term mapped twice), <strong>near_synonym</strong> (two terms meaning the same thing), <strong>hierarchy_violation</strong> (parent and child term both submitted), and <strong>scope_mismatch</strong> (term mapped to the wrong ontology domain). This produces a structured <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">ConflictReport</code>.</p>
+        <div class="code-block"><span class="fn">ConflictReport</span>(
+    total_conflicts=<span class="num">3</span>,
+    conflicts=[
+        <span class="fn">ConflictItem</span>(
+            terms=[<span class="st">"CAR-T cell"</span>, <span class="st">"chimeric antigen receptor T cell"</span>],
+            conflict_type=<span class="st">"near_synonym"</span>,
+            description=<span class="st">"Both refer to the same entity; preferred label is CL:0001074."</span>,
+            resolution=<span class="st">"deduplicate to preferred label"</span>
+        ),
+        ...
+    ]
+)</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">Step 5 — Node 4: GovernanceGateAgent</div>
+      <div class="tl-title">Rule-based routing — no LLM, fully deterministic and auditable</div>
+      <div class="tl-body">
+        <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:.8rem">The governance node is deliberately LLM-free. Threshold comparisons are deterministic, meaning the same input always produces the same routing decision. Each term gets a <code style="color:var(--blue);font-size:.8em;background:var(--surface2);padding:.05em .3em;border-radius:3px">GovernanceDecision</code> with an action, a human-readable reason, a priority level, and the named domain steward to route to when human input is needed.</p>
+        <div class="code-block"><span class="cm"># trypan blue exclusion assay — mapping_confidence 0.91</span>
+<span class="fn">GovernanceDecision</span>(
+    action=<span class="st">"auto_approve"</span>,   <span class="cm"># confidence ≥ 0.88</span>
+    reason=<span class="st">"High-confidence OBI exact match."</span>,
+    priority=<span class="st">"low"</span>, assigned_steward=<span class="kw">None</span>
+)
+
+<span class="cm"># "Vi-CELL XR" — instrument name, no ontology match</span>
+<span class="fn">GovernanceDecision</span>(
+    action=<span class="st">"escalate"</span>,         <span class="cm"># needs_new_term=True</span>
+    reason=<span class="st">"No matching term found; new term proposal required."</span>,
+    priority=<span class="st">"high"</span>,
+    assigned_steward=<span class="st">"assay_ontology_steward"</span>
+)</div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-date">Step 6 — Reading the Results</div>
+      <div class="tl-title">Access the full curation summary, audit trail, and export to CSV</div>
+      <div class="tl-body">
+        <div class="code-block">summary = pipeline.curate(text=doc_text, source_document=<span class="st">"DOC-001"</span>)
+
+<span class="cm"># summary is a CurationSummary Pydantic object</span>
+summary.total_terms          <span class="cm"># total candidate terms found</span>
+summary.auto_approved        <span class="cm"># terms auto-approved by the gate</span>
+summary.human_review_queue   <span class="cm"># list of terms needing a human decision</span>
+summary.escalated            <span class="cm"># list of new term proposals</span>
+summary.auto_curation_rate   <span class="cm"># % of terms handled without human input</span>
+summary.audit_trail          <span class="cm"># every agent decision, in order, recorded</span>
+
+<span class="cm"># Export to DataFrame / CSV</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+df = pd.<span class="fn">DataFrame</span>(summary.to_records())
+df.to_csv(<span class="st">"curation_results.csv"</span>, index=<span class="kw">False</span>)</div>
+      </div>
+    </div>
+
+  </div>
+</section>
 
 <!-- ── What We Built ──────────────────────────────────────────────────────── -->
 <section id="what-we-built">
