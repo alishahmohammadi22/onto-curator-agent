@@ -98,8 +98,10 @@ class EntityExtractorAgent:
                     "content": (
                         f"Extract all ontology-candidate biomedical entities from the "
                         f"following text:\n\n---\n{text}\n---\n\n"
-                        "Return only valid JSON — an array of objects with the fields "
-                        "described in your instructions."
+                        'Return a JSON object with a single key \'entities\' whose value '
+                        "is an array of ALL extracted entities. Each entity must have the "
+                        "fields described in your instructions. Example: "
+                        '{"entities": [{"text": "...", "entity_type": "...", ...}]}'
                     ),
                 },
             ],
@@ -111,8 +113,16 @@ class EntityExtractorAgent:
         logger.debug("EntityExtractor raw response: %s", raw[:500])
 
         parsed = json.loads(raw)
-        # Handle both {"entities": [...]} and plain [...]
-        items: list[dict] = parsed if isinstance(parsed, list) else parsed.get("entities", [])
+        # Handle {"entities": [...]}, plain [...], or a single-entity object
+        if isinstance(parsed, list):
+            items: list[dict] = parsed
+        elif "entities" in parsed:
+            items = parsed["entities"]
+        elif "text" in parsed and "entity_type" in parsed:
+            # GPT-5.2 returned a single entity object directly
+            items = [parsed]
+        else:
+            items = []
 
         terms: list[CandidateTerm] = []
         for item in items:
