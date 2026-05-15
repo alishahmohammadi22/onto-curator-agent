@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OntoCurator Agent — Agentic AI for Ontology Curation</title>
+  <meta name="description" content="OntoCurator Agent: A multi-agent LangGraph pipeline powered by GPT-5.2 for autonomous biomedical ontology term curation in pharmaceutical R&D." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1c2128;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --green: #3fb950;
+      --green-dim: #1a3a24;
+      --blue: #58a6ff;
+      --blue-dim: #0d2147;
+      --yellow: #d29922;
+      --yellow-dim: #2d2205;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --purple-dim: #2a1d47;
+      --accent: #58a6ff;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13, 17, 23, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .nav-brand { font-weight: 700; font-size: 1rem; color: var(--text); text-decoration: none; letter-spacing: -0.3px; }
+    .nav-brand span { color: var(--blue); }
+    .nav-links { display: flex; gap: 1.6rem; list-style: none; }
+    .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--blue); color: #000; padding: 0.35rem 0.9rem;
+      border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 700;
+      transition: opacity .2s;
+    }
+    .nav-cta:hover { opacity: .85; }
+
+    /* ── Hero ──────────────────────────────────────────────────────────────── */
+    .hero {
+      min-height: 90vh;
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(88, 166, 255, 0.12), transparent 70%);
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.25rem 0.85rem; font-size: 0.75rem; font-weight: 500;
+      color: var(--text-muted); background: var(--surface); margin-bottom: 1.5rem;
+    }
+    .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 1.2rem;
+    }
+    h1 .highlight { color: var(--blue); }
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 640px;
+      margin: 0 auto 2.5rem;
+    }
+    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-bottom: 3.5rem; }
+    .btn-primary {
+      background: var(--blue); color: #000;
+      padding: 0.75rem 1.6rem; border-radius: 8px;
+      text-decoration: none; font-weight: 700; font-size: 0.95rem;
+      transition: opacity .2s, transform .15s;
+    }
+    .btn-primary:hover { opacity: .85; transform: translateY(-1px); }
+    .btn-secondary {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.75rem 1.6rem; border-radius: 8px;
+      text-decoration: none; font-weight: 600; font-size: 0.95rem;
+      transition: border-color .2s, transform .15s;
+    }
+    .btn-secondary:hover { border-color: var(--blue); transform: translateY(-1px); }
+    .stats-row {
+      display: flex; gap: 2.5rem; flex-wrap: wrap; justify-content: center;
+      border-top: 1px solid var(--border); padding-top: 2.5rem;
+    }
+    .stat { text-align: center; }
+    .stat-num { font-size: 2rem; font-weight: 800; color: var(--text); display: block; }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── Section generic ───────────────────────────────────────────────────── */
+    section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+    .section-tag {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 0.6rem;
+    }
+    h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 800; letter-spacing: -0.8px;
+      margin-bottom: 1rem;
+    }
+    .section-intro { color: var(--text-muted); max-width: 680px; margin-bottom: 3rem; font-size: 1.05rem; }
+
+    /* ── Pipeline diagram ──────────────────────────────────────────────────── */
+    .pipeline-row {
+      display: flex; align-items: stretch; gap: 0;
+      overflow-x: auto; padding-bottom: 1rem;
+    }
+    .pipe-step {
+      flex: 1; min-width: 200px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 1.5rem 1.2rem;
+      position: relative; transition: border-color .2s;
+    }
+    .pipe-step:not(:last-child)::after {
+      content: '→';
+      position: absolute; right: -14px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: 1.2rem; z-index: 1;
+    }
+    .pipe-step:not(:first-child) { border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+    .pipe-step:not(:last-child) { border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .pipe-step:hover { border-color: var(--blue); }
+    .pipe-icon { font-size: 1.8rem; margin-bottom: 0.6rem; }
+    .pipe-num { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem; }
+    .pipe-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.5rem; }
+    .pipe-agent { font-size: 0.72rem; color: var(--blue); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.6rem; }
+    .pipe-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+    .pipeline-arrow-row {
+      display: flex; gap: 0; align-items: center; justify-content: center; padding: 0.5rem 0;
+    }
+
+    /* ── Card grid ─────────────────────────────────────────────────────────── */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem;
+      transition: border-color .2s, transform .2s;
+    }
+    .card:hover { border-color: var(--blue); transform: translateY(-2px); }
+    .card-icon { font-size: 1.5rem; margin-bottom: 0.8rem; }
+    .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .card p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; }
+    .card .tag { display: inline-block; margin-top: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+    .tag-green { background: var(--green-dim); color: var(--green); }
+    .tag-blue  { background: var(--blue-dim);  color: var(--blue);  }
+    .tag-purple{ background: var(--purple-dim);color: var(--purple);}
+    .tag-yellow{ background: var(--yellow-dim);color: var(--yellow);}
+
+    /* ── Results / metrics ─────────────────────────────────────────────────── */
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+    .metric-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 1.4rem 1.2rem; text-align: center;
+    }
+    .metric-card .mn { font-size: 2.2rem; font-weight: 800; display: block; }
+    .metric-card .ml { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .green-num { color: var(--green); }
+    .blue-num  { color: var(--blue);  }
+    .yellow-num{ color: var(--yellow);}
+    .red-num   { color: var(--red);   }
+    .purple-num{ color: var(--purple);}
+
+    /* ── Results table ─────────────────────────────────────────────────────── */
+    .results-table-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead { background: var(--surface2); }
+    th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 1px solid var(--border); }
+    td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+    .badge-status {
+      display: inline-block; padding: 0.15rem 0.55rem; border-radius: 4px; font-size: 0.72rem; font-weight: 600;
+    }
+    .s-approved { background: var(--green-dim); color: var(--green); }
+    .s-review   { background: var(--yellow-dim);color: var(--yellow);}
+    .s-escalate { background: #2d1212; color: var(--red); }
+
+    /* ── Code block ────────────────────────────────────────────────────────── */
+    .code-block {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 1.25rem 1.5rem;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+      line-height: 1.7; overflow-x: auto; margin: 1rem 0;
+      white-space: pre;
+    }
+    .code-block .kw  { color: #ff7b72; }  /* keyword */
+    .code-block .fn  { color: #d2a8ff; }  /* function */
+    .code-block .st  { color: #a5d6ff; }  /* string */
+    .code-block .cm  { color: var(--text-muted); font-style: italic; } /* comment */
+    .code-block .num { color: #79c0ff; }  /* number */
+
+    /* ── Timeline ──────────────────────────────────────────────────────────── */
+    .timeline { position: relative; padding-left: 2rem; }
+    .timeline::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--border); border-radius: 2px; }
+    .tl-item { position: relative; padding-bottom: 2rem; }
+    .tl-item::before { content: ''; position: absolute; left: -2.4rem; top: 0.35rem; width: 12px; height: 12px; border-radius: 50%; background: var(--blue); border: 2px solid var(--bg); }
+    .tl-date { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; margin-bottom: 0.35rem; }
+    .tl-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.4rem; }
+    .tl-body { font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; }
+    .tl-body code { background: var(--surface2); padding: 0.1rem 0.4rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--blue); }
+
+    /* ── Governance bar ────────────────────────────────────────────────────── */
+    .gov-bars { display: flex; flex-direction: column; gap: 1rem; }
+    .gov-row { display: flex; align-items: center; gap: 1rem; }
+    .gov-label { width: 140px; font-size: 0.85rem; font-weight: 600; flex-shrink: 0; }
+    .gov-bar-track { flex: 1; height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+    .gov-bar-fill { height: 100%; border-radius: 999px; }
+    .gov-val { width: 52px; text-align: right; font-size: 0.82rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Tech stack pills ──────────────────────────────────────────────────── */
+    .pill-group { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .pill {
+      display: flex; align-items: center; gap: 0.4rem;
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.3rem 0.85rem; font-size: 0.78rem; font-weight: 500;
+      color: var(--text-muted); background: var(--surface);
+      transition: border-color .2s, color .2s;
+    }
+    .pill:hover { border-color: var(--blue); color: var(--text); }
+
+    /* ── Footer ────────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      text-align: center; padding: 3rem 2rem;
+      font-size: 0.85rem; color: var(--text-muted);
+    }
+    footer a { color: var(--blue); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Divider ───────────────────────────────────────────────────────────── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0 2rem; }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .pipe-step::after { display: none; }
+      .pipe-step { border-radius: var(--radius-sm) !important; border: 1px solid var(--border) !important; }
+      .gov-label { width: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ─────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="nav-brand" href="#">Onto<span>Curator</span></a>
+  <ul class="nav-links">
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#what-we-built">What We Built</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#technical">Technical</a></li>
+    <li><a href="#install">Install</a></li>
+  </ul>
+  <a class="nav-cta" href="https://github.com/alishahmohammadi22/onto-curator-agent" target="_blank">View on GitHub →</a>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Python Package · v0.1.0</div>
+  <h1>
+    <span class="highlight">OntoCurator</span><br/>Agent
+  </h1>
+  <p class="hero-sub">
+    A multi-agent LangGraph pipeline powered by <strong>GPT-5.2</strong> that autonomously 
+    extracts, maps, resolves, and governs biomedical ontology terms from pharmaceutical R&amp;D documents.
+  </p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="https://github.com/alishahmohammadi22/onto-curator-agent" target="_blank">GitHub Repository</a>
+    <a class="btn-secondary" href="https://github.com/alishahmohammadi22/onto-curator-agent/blob/main/notebooks/01_quickstart_demo.ipynb" target="_blank">View Notebook Demo</a>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><span class="stat-num">4</span><span class="stat-label">AI Agents</span></div>
+    <div class="stat"><span class="stat-num">68</span><span class="stat-label">Terms Curated (Demo)</span></div>
+    <div class="stat"><span class="stat-num">10+</span><span class="stat-label">Ontologies Searched</span></div>
+    <div class="stat"><span class="stat-num">2,500+</span><span class="stat-label">Lines of Code</span></div>
+    <div class="stat"><span class="stat-num">GPT-5.2</span><span class="stat-label">OpenAI Model</span></div>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- ── Overview ───────────────────────────────────────────────────────────── -->
+<section id="overview">
+  <div class="section-tag">Overview</div>
+  <h2>What is OntoCurator Agent?</h2>
+  <p class="section-intro">
+    In pharmaceutical R&amp;D, scientists write thousands of lab reports, protocols, 
+    and assay descriptions every year. Each document is full of biomedical terms — 
+    cell types, assays, compounds, processes — many of which may not yet exist in 
+    any controlled ontology. OntoCurator Agent automates the most tedious part of 
+    ontology governance: finding those terms, mapping them to existing standards, 
+    detecting conflicts, and routing decisions to the right stewards.
+  </p>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-icon">🔍</div>
+      <h3>Automated Term Discovery</h3>
+      <p>GPT-5.2 reads raw scientific text and identifies every concept that needs ontology coverage — including novel terms that don't exist yet.</p>
+      <span class="tag tag-blue">EntityExtractorAgent</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗺️</div>
+      <h3>Multi-Ontology Mapping</h3>
+      <p>Searches BioPortal (OBI, ChEBI, GO, CL, DOID, EFO, BAO, HP, NCIT, MeSH) and EBI OLS4, then uses GPT-5.2 to rank and explain the best match.</p>
+      <span class="tag tag-purple">TermMapperAgent</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚔️</div>
+      <h3>Conflict Detection</h3>
+      <p>Identifies duplicate terms, near-synonyms, hierarchy violations, and scope mismatches across the full set of mapped terms for a document.</p>
+      <span class="tag tag-yellow">ConflictResolverAgent</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">🏛️</div>
+      <h3>Rule-Based Governance</h3>
+      <p>Routes each term to auto-approve, human review, or escalation based on configurable confidence thresholds and domain steward assignments.</p>
+      <span class="tag tag-green">GovernanceGateAgent</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">📋</div>
+      <h3>Full Audit Trail</h3>
+      <p>Every term carries a complete audit trail recording which agent touched it, what decision was made, and the reasoning behind it.</p>
+      <span class="tag tag-blue">Pydantic v2 Models</span>
+    </div>
+    <div class="card">
+      <div class="card-icon">📊</div>
+      <h3>Rich Reporting</h3>
+      <p>Exports governance routing charts, confidence histograms, human review queues, and full CSV exports ready for downstream use.</p>
+      <span class="tag tag-green">Jupyter Demo Notebook</span>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── Pipeline ────────────────────────────────────────────────────────────── -->
+<section id="pipeline">
+  <div class="section-tag">Architecture</div>
+  <h2>The 4-Agent LangGraph Pipeline</h2>
+  <p class="section-intro">
+    Each curation run flows through a LangGraph <code style="color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:0.9em;background:var(--surface);padding:.1em .4em;border-radius:4px">StateGraph</code> with four nodes 
+    wired in sequence. Errors at any node are captured in state and surfaced in the final summary 
+    without crashing the pipeline.
+  </p>
+  <div class="pipeline-row">
+    <div class="pipe-step">
+      <div class="pipe-icon">🔬</div>
+      <div class="pipe-num">Node 1</div>
+      <div class="pipe-name">Extract</div>
+      <div class="pipe-agent">EntityExtractorAgent</div>
+      <div class="pipe-desc">
+        Sends source text to GPT-5.2 with a NER system prompt. Returns a list of 
+        <code style="color:var(--blue);font-size:.78em;background:var(--surface2);padding:.05em .3em;border-radius:3px">CandidateTerm</code> 
+        objects with entity type, confidence, and context. Uses tenacity for 3-attempt retry.
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🗺️</div>
+      <div class="pipe-num">Node 2</div>
+      <div class="pipe-name">Map</div>
+      <div class="pipe-agent">TermMapperAgent</div>
+      <div class="pipe-desc">
+        For each candidate term: searches BioPortal REST API + EBI OLS4, 
+        then calls GPT-5.2 to rank results and explain the mapping. 
+        Flags terms with <code style="color:var(--blue);font-size:.78em;background:var(--surface2);padding:.05em .3em;border-radius:3px">needs_new_term=True</code> when no suitable match exists.
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">⚔️</div>
+      <div class="pipe-num">Node 3</div>
+      <div class="pipe-name">Resolve</div>
+      <div class="pipe-agent">ConflictResolverAgent</div>
+      <div class="pipe-desc">
+        Passes all mappings to GPT-5.2 and asks it to identify: 
+        duplicate, near_synonym, hierarchy_violation, and scope_mismatch conflicts. 
+        Returns a structured <code style="color:var(--blue);font-size:.78em;background:var(--surface2);padding:.05em .3em;border-radius:3px">ConflictReport</code>.
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-icon">🏛️</div>
+      <div class="pipe-num">Node 4</div>
+      <div class="pipe-name">Govern</div>
+      <div class="pipe-agent">GovernanceGateAgent</div>
+      <div class="pipe-desc">
+        Rule-based (no LLM). Confidence ≥ 0.88 → auto_approve. 
+        0.60–0.88 → human_review. &lt; 0.60 or new term → escalate. 
+        Routes to named domain stewards based on entity type.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:2.5rem">
+    <div class="section-tag" style="margin-bottom:.8rem">State object flowing through the graph</div>
+    <div class="code-block"><span class="kw">class</span> <span class="fn">CurationState</span>(TypedDict):
+    run_id           : str
+    input_text       : str
+    source_document  : Optional[str]
+    candidate_terms  : list[dict]   <span class="cm"># ← filled by Node 1</span>
+    term_mappings    : list[dict]   <span class="cm"># ← filled by Node 2</span>
+    conflict_report  : Optional[dict]  <span class="cm"># ← filled by Node 3</span>
+    curation_results : list[dict]   <span class="cm"># ← filled by Node 4</span>
+    errors           : list[str]    <span class="cm"># ← accumulated by any node</span></div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── What We Built ──────────────────────────────────────────────────────── -->
+<section id="what-we-built">
+  <div class="section-tag">What We Built</div>
+  <h2>Complete Build History</h2>
+  <p class="section-intro">Every file, decision, and bug fix — from first commit to a fully working end-to-end pipeline.</p>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-date">Session 1 — Project Ideation</div>
+      <div class="tl-title">Designed the OntoCurator concept and defined the 4-agent architecture</div>
+      <div class="tl-body">
+        Defined the problem: pharmaceutical ontology curation is a manual, slow process bottlenecked by human experts.
+        Designed a multi-agent system with LangGraph to automate the Extract → Map → Resolve → Govern workflow.
+        Chose GPT-5.2 as the LLM backbone, BioPortal + EBI OLS4 as ontology sources, and Pydantic v2 for schema validation.
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Session 2 — Package Scaffolding</div>
+      <div class="tl-title">Built the full installable Python package structure (23 files, 2,500+ lines)</div>
+      <div class="tl-body">
+        Created <code>onto_curator/</code> package with hatchling build backend, <code>pyproject.toml</code> with optional <code>[notebooks]</code> extras,
+        and the full module tree: <code>agents/</code>, <code>tools/</code>, <code>models/</code>, and top-level <code>pipeline.py</code> / <code>orchestrator.py</code>.
+        Wrote all 4 agent classes, 2 ontology tool clients, and 8 Pydantic schemas.
+        Initialised git repo, made first commit, and pushed to <a href="https://github.com/alishahmohammadi22/onto-curator-agent" target="_blank">GitHub</a>.
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Bug Fix 1 — pip install OSError</div>
+      <div class="tl-title">Created README.md to satisfy hatchling's readme requirement</div>
+      <div class="tl-body">
+        <code>pyproject.toml</code> declared <code>readme = "README.md"</code> but the file was missing,
+        causing <code>OSError: Readme file does not exist</code> during <code>pip install -e ".[notebooks]"</code>.
+        Created a comprehensive 194-line <code>README.md</code> with architecture docs, usage examples, and governance thresholds.
+        Committed as <code>e8333b2</code>.
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Bug Fix 2 — Notebook install typo</div>
+      <div class="tl-title">Fixed <code>..[notebooks]</code> → <code>.[notebooks]</code> in notebook cell 3</div>
+      <div class="tl-body">
+        The install cell used <code>..[notebooks]</code> which is invalid pip path syntax.
+        Changed to <code>.[notebooks]</code> (with <code>cwd=".."</code> already set, <code>.</code> correctly resolves to the package root).
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">Bug Fix 3 — GPT-5.2 JSON response format (commit 6eb31c2)</div>
+      <div class="tl-title">Fixed entity extractor to handle GPT-5.2's single-object json_object response</div>
+      <div class="tl-body">
+        Discovered that GPT-5.2 returns a bare single-entity JSON object <code>{"text": ..., "entity_type": ...}</code>
+        instead of the expected <code>{"entities": [...]}</code> wrapper when <code>response_format=json_object</code> is used without explicit
+        instruction to use an array wrapper. The parser called <code>parsed.get("entities", [])</code> and got <code>[]</code> — 
+        silently producing zero terms.<br/><br/>
+        <strong>Fix:</strong> Updated the user prompt to explicitly request <code>{"entities": [...]}</code> with an example,
+        and added a three-way parser fallback: <code>{"entities": [...]}</code> → plain list → single-entity dict fallback.
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-date">End-to-End Notebook Run</div>
+      <div class="tl-title">Full pipeline executed successfully on 3 cell therapy documents</div>
+      <div class="tl-body">
+        All 12 code cells ran: install → API key load → test data → pipeline init → curation of 3 docs →
+        rich tables → governance charts → confidence histogram → audit trail inspector → review queue → CSV export.
+        Results: 68 terms curated, charts saved, <code>curation_results.csv</code> exported.
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── Results ─────────────────────────────────────────────────────────────── -->
+<section id="results">
+  <div class="section-tag">Demo Results</div>
+  <h2>Pipeline Output — 3 Cell Therapy Documents</h2>
+  <p class="section-intro">
+    Run on three realistic CAR-T manufacturing lab reports: an in-process assessment, a final QC release, 
+    and a cryopreservation formulation development report.
+  </p>
+
+  <div class="metrics-grid">
+    <div class="metric-card"><span class="mn blue-num">68</span><span class="ml">Total Terms Curated</span></div>
+    <div class="metric-card"><span class="mn green-num">10</span><span class="ml">Auto-Approved</span></div>
+    <div class="metric-card"><span class="mn yellow-num">8</span><span class="ml">Pending Human Review</span></div>
+    <div class="metric-card"><span class="mn red-num">50</span><span class="ml">Escalated</span></div>
+    <div class="metric-card"><span class="mn purple-num">26</span><span class="ml">New Term Proposals</span></div>
+    <div class="metric-card"><span class="mn yellow-num">22</span><span class="ml">Conflicts Detected</span></div>
+  </div>
+
+  <div class="results-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Total Terms</th>
+          <th>Auto-Approved</th>
+          <th>Human Review</th>
+          <th>Escalated</th>
+          <th>New Terms</th>
+          <th>Conflicts</th>
+          <th>Auto-Curation %</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>DOC-CAR-T-001</strong><br/><span style="font-size:.78rem;color:var(--text-muted)">In-process assessment, Day 5</span></td>
+          <td>26</td>
+          <td><span class="badge-status s-approved">5</span></td>
+          <td><span class="badge-status s-review">1</span></td>
+          <td><span class="badge-status s-escalate">20</span></td>
+          <td>10</td>
+          <td>9</td>
+          <td><strong>19.2%</strong></td>
+        </tr>
+        <tr>
+          <td><strong>DOC-QC-RELEASE-002</strong><br/><span style="font-size:.78rem;color:var(--text-muted)">Final release testing, Day 14</span></td>
+          <td>19</td>
+          <td><span class="badge-status s-approved">2</span></td>
+          <td><span class="badge-status s-review">4</span></td>
+          <td><span class="badge-status s-escalate">13</span></td>
+          <td>6</td>
+          <td>6</td>
+          <td><strong>10.5%</strong></td>
+        </tr>
+        <tr>
+          <td><strong>DOC-FORMULATION-003</strong><br/><span style="font-size:.78rem;color:var(--text-muted)">Cryopreservation formulation</span></td>
+          <td>23</td>
+          <td><span class="badge-status s-approved">3</span></td>
+          <td><span class="badge-status s-review">3</span></td>
+          <td><span class="badge-status s-escalate">17</span></td>
+          <td>10</td>
+          <td>7</td>
+          <td><strong>13.0%</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:2.5rem">
+    <div class="section-tag" style="margin-bottom:1rem">Governance routing breakdown</div>
+    <div class="gov-bars">
+      <div class="gov-row">
+        <div class="gov-label" style="color:var(--green)">✅ Auto-Approved</div>
+        <div class="gov-bar-track"><div class="gov-bar-fill" style="width:14.7%;background:var(--green)"></div></div>
+        <div class="gov-val">10 / 68</div>
+      </div>
+      <div class="gov-row">
+        <div class="gov-label" style="color:var(--yellow)">👁 Human Review</div>
+        <div class="gov-bar-track"><div class="gov-bar-fill" style="width:11.8%;background:var(--yellow)"></div></div>
+        <div class="gov-val">8 / 68</div>
+      </div>
+      <div class="gov-row">
+        <div class="gov-label" style="color:var(--red)">🚨 Escalated</div>
+        <div class="gov-bar-track"><div class="gov-bar-fill" style="width:73.5%;background:var(--red)"></div></div>
+        <div class="gov-val">50 / 68</div>
+      </div>
+    </div>
+    <p style="margin-top:1rem;font-size:.82rem;color:var(--text-muted)">
+      High escalation rate is expected for novel CAR-T terminology — many terms (e.g., "trypan blue exclusion assay", 
+      "Vi-CELL XR", "CryoStor CS10") are instrument or proprietary product names not yet in OBI or ChEBI, 
+      so they correctly trigger new-term proposals to an assay or molecule ontology steward.
+    </p>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── Technical ───────────────────────────────────────────────────────────── -->
+<section id="technical">
+  <div class="section-tag">Technical Details</div>
+  <h2>Under the Hood</h2>
+  <p class="section-intro">Key design decisions, data models, and external integrations.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:2.5rem">
+
+    <div>
+      <h3 style="margin-bottom:1rem;font-size:1.1rem">Data Models (Pydantic v2)</h3>
+      <div class="code-block"><span class="kw">class</span> <span class="fn">CandidateTerm</span>(BaseModel):
+    text: str
+    normalized_text: str
+    entity_type: <span class="fn">EntityType</span>  <span class="cm"># enum</span>
+    confidence: float
+    source_document: Optional[str]
+
+<span class="kw">class</span> <span class="fn">TermMapping</span>(BaseModel):
+    candidate: <span class="fn">CandidateTerm</span>
+    top_match: Optional[<span class="fn">OntologyMatch</span>]
+    mapping_confidence: float
+    needs_new_term: bool
+    mapper_reasoning: Optional[str]
+
+<span class="kw">class</span> <span class="fn">GovernanceDecision</span>(BaseModel):
+    action: <span class="fn">GovernanceAction</span>  <span class="cm"># enum</span>
+    reason: str
+    priority: str
+    assigned_steward: Optional[str]</div>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom:1rem;font-size:1.1rem">Governance Thresholds</h3>
+      <div class="code-block"><span class="cm"># GovernanceGateAgent — rule-based, no LLM</span>
+
+<span class="kw">if</span> mapping_confidence <span class="kw">>=</span> <span class="num">0.88</span>:
+    action = <span class="st">"auto_approve"</span>
+
+<span class="kw">elif</span> mapping_confidence <span class="kw">>=</span> <span class="num">0.60</span>:
+    action = <span class="st">"human_review"</span>
+
+<span class="kw">else</span>:          <span class="cm"># < 0.60 OR needs_new_term</span>
+    action = <span class="st">"escalate"</span>
+
+<span class="cm"># Domain steward routing table</span>
+stewards = {
+    <span class="st">"assay"</span>:      <span class="st">"assay_ontology_steward"</span>,
+    <span class="st">"molecule"</span>:   <span class="st">"cheminformatics_steward"</span>,
+    <span class="st">"cell_type"</span>:  <span class="st">"cell_biology_steward"</span>,
+    <span class="st">"gene"</span>:       <span class="st">"genomics_steward"</span>,
+    <span class="st">"disease"</span>:    <span class="st">"clinical_steward"</span>,
+}</div>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom:1rem;font-size:1.1rem">Ontology APIs</h3>
+      <div class="card" style="margin-bottom:.8rem">
+        <div class="card-icon">🏥</div>
+        <h3>BioPortal REST API</h3>
+        <p>Searches OBI, ChEBI, GO, CL, DOID, EFO, BAO, HP, NCIT, MeSH. Requires <code style="font-family:'JetBrains Mono',monospace;font-size:.8em;color:var(--blue)">BIOPORTAL_API_KEY</code>. Falls back to mock mode (returns empty) when key is absent so the pipeline never crashes.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔬</div>
+        <h3>EBI OLS4 API</h3>
+        <p>EMBL-EBI Ontology Lookup Service. No authentication required. Scored by match type: exact=1.0, synonym=0.85, substring=0.75.</p>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom:1rem;font-size:1.1rem">GPT-5.2 Compatibility Fix</h3>
+      <div class="code-block"><span class="cm"># GPT-5.2 returns a single entity object</span>
+<span class="cm"># instead of {"entities": [...]} wrapper.</span>
+<span class="cm"># Three-way fallback parser:</span>
+
+parsed = json.loads(raw)
+
+<span class="kw">if</span> isinstance(parsed, list):
+    items = parsed          <span class="cm"># plain array</span>
+<span class="kw">elif</span> <span class="st">"entities"</span> <span class="kw">in</span> parsed:
+    items = parsed[<span class="st">"entities"</span>]  <span class="cm"># standard wrapper</span>
+<span class="kw">elif</span> <span class="st">"text"</span> <span class="kw">in</span> parsed:
+    items = [parsed]        <span class="cm"># GPT-5.2 single-obj</span>
+<span class="kw">else</span>:
+    items = []</div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── Tech Stack ──────────────────────────────────────────────────────────── -->
+<section>
+  <div class="section-tag">Technology Stack</div>
+  <h2>Built With</h2>
+  <br/>
+  <div class="pill-group">
+    <span class="pill">🤖 OpenAI GPT-5.2</span>
+    <span class="pill">🕸️ LangGraph ≥ 0.2</span>
+    <span class="pill">🐍 Python ≥ 3.10</span>
+    <span class="pill">✅ Pydantic v2</span>
+    <span class="pill">📦 hatchling</span>
+    <span class="pill">🔁 tenacity (retry)</span>
+    <span class="pill">🏥 BioPortal REST API</span>
+    <span class="pill">🔬 EBI OLS4 API</span>
+    <span class="pill">📓 JupyterLab</span>
+    <span class="pill">🎨 Rich (terminal tables)</span>
+    <span class="pill">📊 matplotlib / seaborn</span>
+    <span class="pill">🐼 pandas</span>
+    <span class="pill">🌱 python-dotenv</span>
+    <span class="pill">📡 httpx</span>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── Install ─────────────────────────────────────────────────────────────── -->
+<section id="install">
+  <div class="section-tag">Get Started</div>
+  <h2>Installation &amp; Usage</h2>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:2rem;margin-top:1rem">
+    <div>
+      <p style="margin-bottom:.8rem;font-weight:600">1. Clone and install</p>
+      <div class="code-block">git clone https://github.com/alishahmohammadi22/onto-curator-agent
+cd onto-curator-agent
+
+<span class="cm"># Standard install</span>
+pip install -e .
+
+<span class="cm"># With Jupyter notebook extras</span>
+pip install -e ".[notebooks]"</div>
+    </div>
+    <div>
+      <p style="margin-bottom:.8rem;font-weight:600">2. Set API keys</p>
+      <div class="code-block"><span class="cm"># .env file in the project root</span>
+OPENAI_API_KEY=sk-...
+BIOPORTAL_API_KEY=...  <span class="cm"># optional</span></div>
+    </div>
+    <div>
+      <p style="margin-bottom:.8rem;font-weight:600">3. Run your first curation</p>
+      <div class="code-block"><span class="kw">from</span> onto_curator <span class="kw">import</span> <span class="fn">OntoCuratorPipeline</span>
+
+pipeline = <span class="fn">OntoCuratorPipeline</span>.from_env(
+    model=<span class="st">"gpt-5.2"</span>,
+    auto_approve_threshold=<span class="num">0.88</span>,
+    human_review_threshold=<span class="num">0.60</span>,
+)
+
+summary = pipeline.curate(
+    text=<span class="st">"Your lab report text here..."</span>,
+    source_document=<span class="st">"DOC-001"</span>
+)
+
+<span class="fn">print</span>(f<span class="st">"Curated {summary.total_terms} terms"</span>)
+<span class="fn">print</span>(f<span class="st">"Auto-curation rate: {summary.auto_curation_rate}%"</span>)</div>
+    </div>
+    <div>
+      <p style="margin-bottom:.8rem;font-weight:600">4. Explore the notebook</p>
+      <div class="code-block">cd notebooks
+jupyter lab 01_quickstart_demo.ipynb
+
+<span class="cm"># The notebook covers:</span>
+<span class="cm"># - End-to-end pipeline on 3 documents</span>
+<span class="cm"># - Governance routing charts</span>
+<span class="cm"># - Audit trail inspector</span>
+<span class="cm"># - Human review queue builder</span>
+<span class="cm"># - Confidence histogram</span>
+<span class="cm"># - CSV export</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- ── Roadmap ─────────────────────────────────────────────────────────────── -->
+<section>
+  <div class="section-tag">Roadmap</div>
+  <h2>What's Next</h2>
+  <div class="card-grid">
+    <div class="card"><div class="card-icon">🔌</div><h3>Knowledge Graph Export</h3><p>Pipe curation results into Neo4j or Apache Jena for graph-based ontology management and SPARQL querying.</p></div>
+    <div class="card"><div class="card-icon">🧠</div><h3>Active Learning Loop</h3><p>Collect human corrections from the review queue to fine-tune entity extraction and mapping confidence over time.</p></div>
+    <div class="card"><div class="card-icon">⚡</div><h3>Batch Processing API</h3><p>Async batch endpoint to curate thousands of documents overnight with progress tracking and resumable runs.</p></div>
+    <div class="card"><div class="card-icon">🌐</div><h3>FastAPI Web Service</h3><p>REST API wrapper so any system can submit text and receive structured curation decisions without Python.</p></div>
+    <div class="card"><div class="card-icon">📐</div><h3>Domain Profiles</h3><p>Pre-configured governance profiles for genomics, formulation, clinical, and manufacturing domains with domain-specific ontology priorities.</p></div>
+    <div class="card"><div class="card-icon">🔍</div><h3>Vector Similarity Fallback</h3><p>When BioPortal and OLS return no results, fall back to embedding-based similarity search over a local ontology snapshot.</p></div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <p style="margin-bottom:.4rem">
+    Built by <strong>Ali Shahmohammadi, Ph.D.</strong> · Associate Director, Takeda
+  </p>
+  <p>
+    <a href="https://github.com/alishahmohammadi22" target="_blank">github.com/alishahmohammadi22</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/alishahmohammadi22/onto-curator-agent" target="_blank">onto-curator-agent repo</a>
+    &nbsp;·&nbsp;
+    Project 01 of 20
+  </p>
+</footer>
+
+</body>
+</html>
